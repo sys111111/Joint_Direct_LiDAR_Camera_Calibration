@@ -95,28 +95,28 @@ public:
                 pt_camera[1] / pt_camera[2]
             );
 
-            //shen 这里修改畸变参数
-            // // 畸变计算
-            const T x2 = pt_normalized.x() * pt_normalized.x();
-            const T y2 = pt_normalized.y() * pt_normalized.y();
-            const T xy = pt_normalized.x() * pt_normalized.y();
-            const T r2 = x2 + y2;
-            const T r4 = r2 * r2;
-            const T r6 = r2 * r4;
+            // //shen 这里修改畸变参数
+            // // // 畸变计算
+            // const T x2 = pt_normalized.x() * pt_normalized.x();
+            // const T y2 = pt_normalized.y() * pt_normalized.y();
+            // const T xy = pt_normalized.x() * pt_normalized.y();
+            // const T r2 = x2 + y2;
+            // const T r4 = r2 * r2;
+            // const T r6 = r2 * r4;
 
-            // 径向畸变
-            const T r_coeff = T(1) + k1 * r2 + k2 * r4 + k3 * r6;
+            // // 径向畸变
+            // const T r_coeff = T(1) + k1 * r2 + k2 * r4 + k3 * r6;
 
-            // 切向畸变
-            const T t_coeff1 = T(2) * xy;
-            const T t_coeff2 = r2 + T(2) * x2;
-            const T t_coeff3 = r2 + T(2) * y2;
+            // // 切向畸变
+            // const T t_coeff1 = T(2) * xy;
+            // const T t_coeff2 = r2 + T(2) * x2;
+            // const T t_coeff3 = r2 + T(2) * y2;
 
-            const T xd = r_coeff * pt_normalized.x() + p1 * t_coeff1 + p2 * t_coeff2;
-            const T yd = r_coeff * pt_normalized.y() + p1 * t_coeff3 + p2 * t_coeff1;
+            // const T xd = r_coeff * pt_normalized.x() + p1 * t_coeff1 + p2 * t_coeff2;
+            // const T yd = r_coeff * pt_normalized.y() + p1 * t_coeff3 + p2 * t_coeff1;
             
-            // const T xd = pt_camera[0] / pt_camera[2];
-            // const T yd = pt_camera[1] / pt_camera[2];
+            const T xd = pt_camera[0] / pt_camera[2];
+            const T yd = pt_camera[1] / pt_camera[2];
             
             // 投影到像素平面
             Eigen::Matrix<T, 2, 1> projected;

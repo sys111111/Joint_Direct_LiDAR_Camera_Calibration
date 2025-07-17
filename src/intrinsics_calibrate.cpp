@@ -9,7 +9,6 @@
 
 #include <gtsam/geometry/Pose3.h>
 
-#include <dfo/nelder_mead.hpp>
 #include <dfo/directional_direct_search.hpp>
 
 #include <glk/primitives/primitives.hpp>
@@ -63,7 +62,7 @@ public:
     
     // 获取初始位姿估计
     std::vector<double> init_values;
-    std::cout << "use CAD initial values" << std::endl;
+    std::cout << "Use CAD initial values" << std::endl;
     const std::vector<double> values = config["results"]["init_T_lidar_camera_auto"];
     init_values.assign(values.begin(), values.end());
 
@@ -114,7 +113,7 @@ public:
     params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) { 
         vis.set_T_camera_lidar(T_camera_lidar); 
     };
-    
+
     VisualCameraCalibration calib(proj, dataset, params);
     
     // 优化过程
@@ -151,6 +150,18 @@ public:
     sst << "p1: " << final_distortion[2] << std::endl;
     sst << "p2: " << final_distortion[3] << std::endl;
     sst << "k3: " << final_distortion[4] << std::endl;
+
+    std::cout << "--- Camera Intrinsics ---" << std::endl;
+    std::cout << "fx: " << final_intrinsics[0] << std::endl;
+    std::cout << "fy: " << final_intrinsics[1] << std::endl;
+    std::cout << "cx: " << final_intrinsics[2] << std::endl;
+    std::cout << "cy: " << final_intrinsics[3] << std::endl;
+    
+    std::cout << "k1: " << final_distortion[0] << std::endl;
+    std::cout << "k2: " << final_distortion[1] << std::endl;
+    std::cout << "p1: " << final_distortion[2] << std::endl;
+    std::cout << "p2: " << final_distortion[3] << std::endl;
+    std::cout << "k3: " << final_distortion[4] << std::endl;
 
     config["camera"]["distortion_coeffs_final_results"] = nlohmann::json::array({
         final_distortion[0],
