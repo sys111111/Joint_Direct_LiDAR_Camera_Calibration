@@ -1,0 +1,5 @@
+site/*
+pre*
+build/*
+models*
+/ceres_solver_2.2.0/
