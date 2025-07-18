@@ -1,3 +1,5 @@
+// file: src/initial_guess_auto.cpp
+
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -5,14 +7,14 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 
 #include <boost/program_options.hpp>
 #include <nlohmann/json.hpp>
 
 #include <ceres/ceres.h>
-#include <ceres/loss_function.h>           
-#include <sophus/se3.hpp>                 
+#include <ceres/loss_function.h>           // for CauchyLoss
+#include <sophus/se3.hpp>                  // for Sophus::SE3d
 #include <sophus/ceres_manifold.hpp>
 
 #include <vlcal/common/console_colors.hpp>
@@ -20,8 +22,9 @@
 #include <vlcal/common/visual_lidar_data.hpp>
 
 namespace vlcal {
-
-// 重投影残差，同时优化 fx, fy, cx, cy, k1, k2, p1, p2，保持 k3 = 0
+//
+// 重投影残差，只优化 fx, fy, cx, cy
+//
 struct ReprojIntrinsicsCost {
   ReprojIntrinsicsCost(
       const Eigen::Vector3d& Xl,
@@ -30,25 +33,18 @@ struct ReprojIntrinsicsCost {
     : Xl_(Xl), uv_(uv), T_Camera_Lidar(T_Camera_Lidar) {}
 
   template <typename T>
-  bool operator()(T const* const p, T* residual) const {
+  bool operator()(T const* const intr, T* residual) const {
+    // 1) LiDAR 点变换到相机系：R * Xl + t
     Eigen::Matrix<T,3,1> Xc =
         T_Camera_Lidar.rotationMatrix().template cast<T>() * Xl_.template cast<T>()
       + T_Camera_Lidar.translation().template cast<T>();
 
-    T x = Xc.x() / Xc.z();
-    T y = Xc.y() / Xc.z();
-    T r2 = x*x + y*y;
+    // 2) 针对 fx,fy,cx,cy 做针孔投影
+    T fx = intr[0], fy = intr[1], cx = intr[2], cy = intr[3];
+    T u_hat = fx * Xc.x() / Xc.z() + cx;
+    T v_hat = fy * Xc.y() / Xc.z() + cy;
 
-    T fx = p[0], fy = p[1], cx = p[2], cy = p[3];
-
-    T k1 = p[4], k2 = p[5], p1 = p[6], p2 = p[7], k3 = T(0);
-    T radial = T(1) + k1*r2 + k2*r2*r2 + k3*r2*r2*r2;
-    T x_dist = x*radial + T(2)*p1*x*y + p2*(r2 + T(2)*x*x);
-    T y_dist = y*radial + p1*(r2 + T(2)*y*y) + T(2)*p2*x*y;
-
-    T u_hat = fx * x_dist + cx;
-    T v_hat = fy * y_dist + cy;
-
+    // 3) 残差
     residual[0] = T(uv_.x()) - u_hat;
     residual[1] = T(uv_.y()) - v_hat;
     return true;
@@ -63,6 +59,7 @@ class InitialGuessAuto {
 public:
   explicit InitialGuessAuto(const std::string& data_path)
     : data_path_(data_path) {
+    // 1) 加载 calib.json
     std::ifstream ifs(data_path_ + "/calib.json");
     if (!ifs) {
       std::cerr << console::bold_red
@@ -72,16 +69,20 @@ public:
     }
     ifs >> config_;
 
+    // 2) 构造相机模型
     const std::string cam_model = config_["camera"]["camera_model"].get<std::string>();
     const auto intr_init        = config_["camera"]["intrinsics"].get<std::vector<double>>();
     const auto dist_coeffs      = config_["camera"]["distortion_coeffs"].get<std::vector<double>>();
     proj_ = camera::create_camera(cam_model, intr_init, dist_coeffs);
 
+    // 3) 读取 JSON 里的外参 init_T_lidar_camera_auto （Camera→LiDAR）
     auto v = config_["results"]["init_T_lidar_camera_auto"];
     Eigen::Quaterniond q(v[6], v[3], v[4], v[5]);
     Eigen::Vector3d t(v[0], v[1], v[2]);
+    // 注意这里是 Camera→LiDAR
     T_Lidar_Camera = Sophus::SE3d(q, t);
 
+    // 4) pick_offsets 与原始实现一致
     constexpr int pw = 1;
     for (int i = -pw; i <= pw; ++i) {
       for (int j = -pw; j <= pw; ++j) {
@@ -91,11 +92,13 @@ public:
     std::sort(pick_offsets_.begin(), pick_offsets_.end(),
               [](auto const& a, auto const& b){ return a.squaredNorm() < b.squaredNorm(); });
 
+    // 5) 读取所有 bag 的 2D–3D 对，并收集到 corrs_
     auto bags = config_["meta"]["bag_names"].get<std::vector<std::string>>();
     for (auto const& bag : bags) {
       auto data = std::make_shared<VisualLiDARData>(data_path_, bag);
       auto tmp  = read_correspondences(data_path_, bag, data->points);
       for (auto& p : tmp) {
+        // p.first: (u,v), p.second: (x,y,z,1)
         corrs_.emplace_back(p.second.head<3>(), p.first);
       }
     }
@@ -131,6 +134,7 @@ public:
 
       int idx = idx32.at<int>(p1.y(), p1.x());
       if (idx < 0) {
+        // 尝试邻域
         for (auto const& off : pick_offsets_) {
           int ny = p1.y() + off.y(), nx = p1.x() + off.x();
           if (ny < 0 || ny >= idx32.rows || nx < 0 || nx >= idx32.cols) continue;
@@ -148,33 +152,32 @@ public:
   }
 
   void estimate_and_save() {
-    auto ini  = config_["camera"]["intrinsics"].get<std::vector<double>>();
-    auto dist = config_["camera"]["distortion_coeffs"].get<std::vector<double>>();
-    double p[8] = {
-      ini[0], ini[1], ini[2], ini[3],
-      dist[0], dist[1], dist[2], dist[3]
-    };
+    // 1) 读初值 intrinsics
+    auto ini = config_["camera"]["intrinsics"].get<std::vector<double>>();
+    double intr[4] = { ini[0], ini[1], ini[2], ini[3] };
 
     Sophus::SE3d T_Camera_Lidar = T_Lidar_Camera.inverse();
 
+    // 3) 构建 Ceres 问题
     ceres::Problem problem;
-    problem.AddParameterBlock(p, 8);
+    problem.AddParameterBlock(intr, 4);
 
     for (auto const& [Xl, uv] : corrs_) {
       auto* cost = new ReprojIntrinsicsCost(Xl, uv, T_Camera_Lidar);
-      auto* func = new ceres::AutoDiffCostFunction<ReprojIntrinsicsCost,2,8>(cost);
-      problem.AddResidualBlock(func, new ceres::CauchyLoss(1.0), p);
+      auto* func = new ceres::AutoDiffCostFunction<ReprojIntrinsicsCost,2,4>(cost);
+      problem.AddResidualBlock(func, new ceres::CauchyLoss(1.0), intr);
     }
 
+    // 4) 求解
     ceres::Solver::Options opts;
-    opts.linear_solver_type           = ceres::DENSE_QR;
+    opts.linear_solver_type = ceres::DENSE_QR;
     opts.minimizer_progress_to_stdout = true;
     ceres::Solver::Summary summary;
     ceres::Solve(opts, &problem, &summary);
     std::cout << summary.BriefReport() << std::endl;
 
-    config_["camera"]["intrinsics"] = { p[0], p[1], p[2], p[3] };
-    config_["camera"]["distortion_coeffs"] = { p[4], p[5], p[6], p[7], 0.0 };
+    // 5) 写回 JSON
+    config_["camera"]["intrinsics"] = { intr[0], intr[1], intr[2], intr[3] };
     std::ofstream ofs(data_path_ + "/calib.json");
     ofs << config_.dump(2) << std::endl;
   }
@@ -183,8 +186,8 @@ private:
   const std::string data_path_;
   nlohmann::json config_;
   camera::GenericCameraBase::ConstPtr proj_;
-  Sophus::SE3d T_Lidar_Camera;
-  std::vector<Eigen::Vector2i> pick_offsets_;
+  Sophus::SE3d   T_Lidar_Camera;
+  std::vector<Eigen::Vector2i>                    pick_offsets_;
   std::vector<std::pair<Eigen::Vector3d,Eigen::Vector2d>> corrs_;
 };
 
@@ -211,5 +214,6 @@ int main(int argc, char** argv) {
   std::string dp = vm["data_path"].as<std::string>();
   vlcal::InitialGuessAuto ig(dp);
   ig.estimate_and_save();
+
   return 0;
 }

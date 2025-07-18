@@ -95,8 +95,8 @@ public:
                 pt_camera[1] / pt_camera[2]
             );
 
-            // //shen 这里修改畸变参数
-            // // // 畸变计算
+            //shen 这里修改畸变参数
+            // // 畸变计算
             // const T x2 = pt_normalized.x() * pt_normalized.x();
             // const T y2 = pt_normalized.y() * pt_normalized.y();
             // const T xy = pt_normalized.x() * pt_normalized.y();

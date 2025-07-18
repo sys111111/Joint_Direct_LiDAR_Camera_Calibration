@@ -1,11 +1,6 @@
-/*
- * @Author: sys111111 sys2048194132@sjtu.edu.cn
- * @Date: 2025-03-06 21:12:17
- * @LastEditors: sys111111 sys2048194132@sjtu.edu.cn
- * @LastEditTime: 2025-07-17 20:52:34
- * @FilePath: /Joint_Direct_LiDAR_Camera_Calibration/include/vlcal/common/vector3i_hash.hpp
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- */
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2021  Kenji Koide (k.koide@aist.go.jp)
+
 #pragma once
 
 #include <Eigen/Core>

@@ -53,7 +53,7 @@ add_library(direct_visual_lidar_calibration STATIC
   src/vlcal/calib/cost_calculator_nid.cpp
   src/vlcal/calib/view_culling.cpp
   src/vlcal/calib/visual_camera_calibration.cpp
-  # src/vlcal/calib/ex_visual_camera_calibration.cpp
+  # src/vlcal/calib/visual_camera_calibration_ex.cpp
 )
 
 target_include_directories(direct_visual_lidar_calibration PUBLIC

@@ -75,7 +75,7 @@ std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> VisualCameraCali
     for (int i = 0; i < params.max_outer_iterations; i++) {
         std::cout << "Iteration " << i + 1 << " of " << params.max_outer_iterations << std::endl;
 
-        if (i < params.max_outer_iterations / 2) {
+        if (i < params.max_outer_iterations / 2 + 1) {
             std::cout << "Using BFGS optimization" << std::endl;
             // 正确接收畸变参数
             auto [intrinsics, distortion, new_T_camera_lidar] = estimate_intrinsic_bfgs(init_T_camera_lidar);
@@ -96,6 +96,32 @@ std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> VisualCameraCali
         Eigen::VectorXd current_intrinsics = proj_update->get_intrinsics();
         // 这里直接使用外部变量new_distortion，不再声明
         new_distortion = proj_update->get_distortion_coeffs();
+
+        // 输出优化结果
+        std::cout << "\n=== Optimization Results ===" << std::endl;
+        std::cout << "\nFinal parameters after LM optimization:" << std::endl;
+        std::cout << "fx: " << final_intrinsics[0] << std::endl;
+        std::cout << "fy: " << final_intrinsics[1] << std::endl;
+        std::cout << "cx: " << final_intrinsics[2] << std::endl;
+        std::cout << "cy: " << final_intrinsics[3] << std::endl;
+        std::cout << "k1: " << new_distortion[0] << std::endl;
+        std::cout << "k2: " << new_distortion[1] << std::endl;
+        std::cout << "p1: " << new_distortion[2] << std::endl;
+        std::cout << "p2: " << new_distortion[3] << std::endl;
+        std::cout << "k3: " << new_distortion[4] << std::endl;
+
+        // 在可视化界面中输出优化结果（不变）
+        std::stringstream sst;
+        sst << "--- Camera Intrinsics ---" << std::endl;
+        sst << "fx: " << final_intrinsics[0] << std::endl;
+        sst << "fy: " << final_intrinsics[1] << std::endl;
+        sst << "cx: " << final_intrinsics[2] << std::endl;
+        sst << "cy: " << final_intrinsics[3] << std::endl;
+        sst << "k1: " << new_distortion[0] << std::endl;
+        sst << "k2: " << new_distortion[1] << std::endl;
+        sst << "p1: " << new_distortion[2] << std::endl;
+        sst << "p2: " << new_distortion[3] << std::endl;
+        sst << "k3: " << new_distortion[4] << std::endl;
 
         data.fx = current_intrinsics[0];
         data.fy = current_intrinsics[1];
@@ -216,9 +242,9 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     Eigen::VectorXd distortion_out = proj_update->get_distortion_coeffs();
     
     // 创建并初始化参数
-    double* parameters = new double[8];
+    double* parameters = new double[9];
     std::copy(intrinsics_out.data(), intrinsics_out.data() + 4, parameters);
-    std::copy(distortion_out.data(), distortion_out.data() + 4, parameters + 4);
+    std::copy(distortion_out.data(), distortion_out.data() + 5, parameters + 4);
 
     // 输出初始参数
     std::cout << "\nInitial parameters:" << std::endl;
@@ -250,20 +276,18 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     ceres::Problem problem(problem_options);
 
     // 添加参数块
-    problem.AddParameterBlock(parameters, 8);
+    problem.AddParameterBlock(parameters, 9);
 
     // 构建NID代价函数
-    int M = static_cast<int>(dataset.size());
-    std::vector<std::shared_ptr<NIDCost>> nid_costs(M);
+    std::vector<std::shared_ptr<NIDCost>> nid_costs;
 
-    #pragma omp parallel for
-    for (int i = 0; i < M; ++i) {
+    for (int i = 0; i < dataset.size(); i++) {
         auto culled_points = view_culling.cull(dataset[i]->points, init_T_camera_lidar);
         cv::Mat normalized_image;
         dataset[i]->image.convertTo(normalized_image, CV_64FC1, 1.0 / 255.0);
-        nid_costs[i] = std::make_shared<NIDCost>(normalized_image,
-                                                culled_points,
-                                                params.nid_bins);
+        // auto nid_cost = std::make_shared<NIDCost>(normalized_image, culled_points, params.nid_bins);
+        std::shared_ptr<NIDCost> nid_cost(new NIDCost(normalized_image, culled_points, params.nid_bins));
+        nid_costs.emplace_back(nid_cost);
     }
 
     // 创建代价函数
@@ -282,7 +306,7 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     delete complete_cost;  // 释放临时对象
 
     // 创建AutoDiffFirstOrderFunction
-    auto* first_order_function = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 8>(cost);
+    auto* first_order_function = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>(cost);
 
     // 配置优化器
     ceres::GradientProblemSolver::Options options;
@@ -300,7 +324,8 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     current_cost = summary.final_cost;
 
     // 输出最终结果
-    std::cout << "\n=== Optimization Results After BFGS ===" << std::endl;
+    std::cout << "\n=== Optimization Results ===" << std::endl;
+    std::cout << "\nFinal parameters:" << std::endl;
     std::cout << "fx: " << parameters[0] << std::endl;
     std::cout << "fy: " << parameters[1] << std::endl;
     std::cout << "cx: " << parameters[2] << std::endl;
@@ -320,7 +345,7 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     Eigen::VectorXd new_intrinsics(4);
     new_intrinsics << parameters[0], parameters[1], parameters[2], parameters[3];
     Eigen::VectorXd new_distortion(5);
-    new_distortion << parameters[4], parameters[5], parameters[6], parameters[7], 0;
+    new_distortion << parameters[4], parameters[5], parameters[6], parameters[7], parameters[8];
 
     std::cout << "summary_cost: " << summary.final_cost << std::endl;
     
@@ -346,21 +371,9 @@ VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_c
     Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics();
     Eigen::VectorXd distortion_out = proj_update->get_distortion_coeffs();
 
-    double parameters[8];
+    double parameters[9];
     std::copy(intrinsics_out.data(), intrinsics_out.data() + 4, parameters);
-    std::copy(distortion_out.data(), distortion_out.data() + 4, parameters + 4);
-
-        std::cout << "\nInitial parameters:" << std::endl;
-    std::cout << std::fixed << std::setprecision(12);
-    std::cout << "fx: " << parameters[0] << std::endl;
-    std::cout << "fy: " << parameters[1] << std::endl;
-    std::cout << "cx: " << parameters[2] << std::endl;
-    std::cout << "cy: " << parameters[3] << std::endl;
-    std::cout << "k1: " << parameters[4] << std::endl;
-    std::cout << "k2: " << parameters[5] << std::endl;
-    std::cout << "p1: " << parameters[6] << std::endl;
-    std::cout << "p2: " << parameters[7] << std::endl;
-    std::cout << "k3: " << parameters[8] << std::endl;
+    std::copy(distortion_out.data(), distortion_out.data() + 5, parameters + 4);
 
     CameraIntrinsics<double> init_intrinsics;
     init_intrinsics.f_x = intrinsics_out(0);
@@ -389,7 +402,7 @@ VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_c
     }
 
     ceres::Problem problem;
-    problem.AddParameterBlock(parameters, 8);
+    problem.AddParameterBlock(parameters, 9);
 
     auto multi_nid_cost = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
     for (const auto& cost : nid_costs) {
@@ -397,7 +410,7 @@ VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_c
     }
 
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<MultiNIDCost, 1, 8>(multi_nid_cost),
+        new ceres::AutoDiffCostFunction<MultiNIDCost, 1, 9>(multi_nid_cost),
         nullptr,
         parameters);
 
@@ -420,17 +433,6 @@ VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_c
     new_intrinsics << parameters[0], parameters[1], parameters[2], parameters[3];
     Eigen::VectorXd new_distortion(5);
     new_distortion << parameters[4], parameters[5], parameters[6], parameters[7], parameters[8];
-
-    std::cout << "\n=== Optimization Results After L-M ===" << std::endl;
-    std::cout << "fx: " << parameters[0] << std::endl;
-    std::cout << "fy: " << parameters[1] << std::endl;
-    std::cout << "cx: " << parameters[2] << std::endl;
-    std::cout << "cy: " << parameters[3] << std::endl;
-    std::cout << "k1: " << parameters[4] << std::endl;
-    std::cout << "k2: " << parameters[5] << std::endl;
-    std::cout << "p1: " << parameters[6] << std::endl;
-    std::cout << "p2: " << parameters[7] << std::endl;
-    std::cout << "k3: " << parameters[8] << std::endl;
 
     std::vector<double> intrinsics_vec = toStdVector(new_intrinsics);
     std::vector<double> distortion_vec = toStdVector(new_distortion);
