@@ -53,6 +53,7 @@ add_library(direct_visual_lidar_calibration STATIC
   src/vlcal/calib/cost_calculator_nid.cpp
   src/vlcal/calib/view_culling.cpp
   src/vlcal/calib/visual_camera_calibration.cpp
+  src/vlcal/calib/extrinsic_visual_camera_calibration.cpp
   # src/vlcal/calib/visual_camera_calibration_ex.cpp
 )
 
@@ -136,12 +137,24 @@ target_link_libraries(intrinsics_calibrate
 direct_visual_lidar_calibration
 )
 
+# extrinsic_calibrate
+add_executable(extrinsics_calibrate 
+  src/extrinsics_calibrate.cpp
+)
+target_include_directories(extrinsics_calibrate PRIVATE
+  ${catkin_INCLUDE_DIRS}
+)
+target_link_libraries(extrinsics_calibrate
+direct_visual_lidar_calibration
+)
+
 install(
   TARGETS
   preprocess_map
   initial_guess_auto
   viewer
   intrinsics_calibrate
+  extrinsics_calibrate
   DESTINATION
   lib/${PROJECT_NAME}
 )

@@ -5,7 +5,7 @@
 
 namespace vlcal {
 
-enum class RegistrationType { NID_BFGS, NID_NELDER_MEAD };
+enum class RegistrationType { NID_BFGS };
 
 struct VisualCameraCalibrationParams {
 public:
