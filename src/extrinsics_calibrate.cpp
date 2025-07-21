@@ -56,9 +56,9 @@ public:
   void extrinsic_calibrate(const boost::program_options::variables_map& vm) {
     std::vector<double> init_values;
 
-    config.count("results") && config["results"].count("init_T_lidar_camera_auto");
+    config.count("results") && config["results"].count("init_T_lidar_camera");
     std::cout << "use automatically estimated initial guess" << std::endl;
-    const std::vector<double> values = config["results"]["init_T_lidar_camera_auto"];
+    const std::vector<double> values = config["results"]["init_T_lidar_camera"];
     init_values.assign(values.begin(), values.end());
 
     if (init_values.empty()) {

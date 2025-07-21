@@ -29,8 +29,6 @@ private:
 
 int main(int argc, char** argv) {
   /*
-  const std::string bag_path = "/home/koide/datasets/lidar_camera/livox_data/2022-09-08-20-41-08.bag";
-
   rosbag::Bag bag(bag_path);
   if(!bag.isOpen()) {
     std::cerr << "failed to open " << bag_path << std::endl;

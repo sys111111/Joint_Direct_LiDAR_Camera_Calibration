@@ -1,12 +1,3 @@
-## Preprocess ##
-###
- # @Author: sys111111 sys2048194132@sjtu.edu.cn
- # @Date: 2025-07-18 23:26:42
- # @LastEditors: sys111111 sys2048194132@sjtu.edu.cn
- # @LastEditTime: 2025-07-20 17:30:02
- # @FilePath: /Joint_Direct_LiDAR_Camera_Calibration/run.sh
- # @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-### 
 # cd build/devel/lib/joint_calibration &&
 #   ./preprocess \
 #   -av \

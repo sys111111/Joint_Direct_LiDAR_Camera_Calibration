@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import json
 import os
@@ -5,7 +7,7 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Update the 'results.init_T_lidar_camera_auto' entry in calib.json")
+        description="Update the 'results.init_T_lidar_camera' entry in calib.json")
     parser.add_argument(
         "extrinsics",
         help="Seven numbers in order: tx,ty,tz,qx,qy,qz,qw"
@@ -41,14 +43,14 @@ def main():
     # Ensure 'results' exists, update the field
     if "results" not in config:
         config["results"] = {}
-    config["results"]["init_T_lidar_camera_auto"] = values
+    config["results"]["init_T_lidar_camera"] = values
 
     # Write back to file
     with open(calib_path, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
 
-    print("Successfully updated init_T_lidar_camera_auto to:")
+    print("Successfully updated init_T_lidar_camera to:")
     print(values)
 
 if __name__ == "__main__":

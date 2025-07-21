@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from email.mime import image
 import sys
 import cv2

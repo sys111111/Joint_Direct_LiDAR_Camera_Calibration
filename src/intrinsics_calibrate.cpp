@@ -53,18 +53,15 @@ public:
   }
 
   void calibrate(const boost::program_options::variables_map& vm) {
-    // 读取相机内参
     const std::string camera_model = config["camera"]["camera_model"];
     const std::vector<double> intrinsics = config["camera"]["intrinsics"];
     const std::vector<double> distortion_coeffs = config["camera"]["distortion_coeffs"];
 
-    // 创建相机模型
     proj = camera::create_camera(camera_model, intrinsics, distortion_coeffs);
     
-    // 获取初始位姿估计
     std::vector<double> init_values;
     std::cout << "use CAD initial values" << std::endl;
-    const std::vector<double> values = config["results"]["init_T_lidar_camera_auto"];
+    const std::vector<double> values = config["results"]["init_T_lidar_camera"];
     init_values.assign(values.begin(), values.end());
 
     if (init_values.empty()) {
@@ -74,7 +71,6 @@ public:
       abort();
     }
 
-    // 初始化位姿变换
     Eigen::Isometry3d init_T_lidar_camera = Eigen::Isometry3d::Identity();
     init_T_lidar_camera.translation() << init_values[0], init_values[1], init_values[2];
     init_T_lidar_camera.linear() = Eigen::Quaterniond(
@@ -83,7 +79,6 @@ public:
 
     const Eigen::Isometry3d init_T_camera_lidar = init_T_lidar_camera.inverse();
 
-    // 设置可视化
     auto viewer = guik::LightViewer::instance(Eigen::Vector2i(-1, -1), vm.count("background"));
     viewer->set_draw_xy_grid(false);
     viewer->use_arcball_camera_control();
@@ -100,7 +95,6 @@ public:
       ImGui::End();
     });
 
-    // 设置可视化器和标定参数
     VisualLiDARVisualizer vis(proj, dataset, false);
     vis.set_T_camera_lidar(init_T_camera_lidar);
 
@@ -117,7 +111,6 @@ public:
     
     VisualCameraCalibration calib(proj, dataset, params);
     
-    // 优化过程
     std::atomic_bool optimization_terminated = false;
     Eigen::Vector4d final_intrinsics;
     Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar;
@@ -138,7 +131,6 @@ public:
 
     optimization_thread.join();
 
-    // 输出优化结果
     std::stringstream sst;
     sst << "--- Camera Intrinsics ---" << std::endl;
     sst << "fx: " << final_intrinsics[0] << std::endl;
@@ -167,7 +159,6 @@ public:
         final_intrinsics[3]
     });
 
-    // 将更新后的JSON保存回文件
     std::ofstream ofs(data_path + "/calib.json");
     if (ofs) {
         ofs << config.dump(4); 
@@ -186,7 +177,8 @@ public:
   
 private:
   const std::string data_path;
-  nlohmann::json config;
+  nlohmann::json config;// shen pipeline
+
 
   camera::GenericCameraBase::ConstPtr proj;
   std::vector<VisualLiDARData::ConstPtr> dataset;
@@ -194,7 +186,6 @@ private:
 
 }  // namespace vlcal
 
-// shen pipeline
 int main(int argc, char** argv) {
   using namespace boost::program_options;
   options_description description("calibrate");

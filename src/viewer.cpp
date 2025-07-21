@@ -46,10 +46,10 @@ public:
       return pose;
     };
 
-    if (config.count("results") && config["results"].count("init_T_lidar_camera_auto")) {
+    if (config.count("results") && config["results"].count("init_T_lidar_camera")) {
       viewer->append_text("Automatic initial guess result found");
       std::cout << "Automatic initial guess result found" << std::endl;
-      const std::vector<double> values = config["results"]["init_T_lidar_camera_auto"];
+      const std::vector<double> values = config["results"]["init_T_lidar_camera"];
       T_labels.emplace_back("INIT_GUESS (AUTO)");
       T_lidar_camera.emplace_back(tum2pose(values));
       std::cout << "--- T_lidar_camera ---" << std::endl << T_lidar_camera.back().matrix() << std::endl;
