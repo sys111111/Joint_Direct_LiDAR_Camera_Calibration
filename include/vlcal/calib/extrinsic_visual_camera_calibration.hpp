@@ -53,7 +53,6 @@ public:
   Eigen::Isometry3d extrinsic_calibrate(const Eigen::Isometry3d& init_T_camera_lidar);
 
 private:
-  Eigen::Isometry3d estimate_pose_nelder_mead(const Eigen::Isometry3d& init_T_camera_lidar);
   Eigen::Isometry3d estimate_pose_bfgs(const Eigen::Isometry3d& init_T_camera_lidar);
 
 private:

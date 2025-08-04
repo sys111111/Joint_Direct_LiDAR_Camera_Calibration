@@ -102,7 +102,6 @@ std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> VisualCameraCali
         std::cout << "p2: " << new_distortion[3] << std::endl;
         std::cout << "k3: " << new_distortion[4] << std::endl;
 
-        // 在可视化界面中输出优化结果（不变）
         std::stringstream sst;
         sst << "--- Camera Intrinsics ---" << std::endl;
         sst << "fx: " << final_intrinsics[0] << std::endl;
@@ -220,19 +219,17 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     std::cout << "=== BFGS Optimization ===" << std::endl;
     ViewCullingParams view_culling_params;
     view_culling_params.enable_depth_buffer_culling = !this->params.disable_z_buffer_culling;
-    ViewCulling view_culling(proj_update,  // 使用 proj_update 而不是 proj
+    ViewCulling view_culling(proj_update, 
         {this->dataset.front()->image.cols, this->dataset.front()->image.rows},
         view_culling_params);
     
-    Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics();  // 使用 proj_update
+    Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics();  
     Eigen::VectorXd distortion_out = proj_update->get_distortion_coeffs();
     
-    // 创建并初始化参数
     double* parameters = new double[9];
     std::copy(intrinsics_out.data(), intrinsics_out.data() + 4, parameters);
     std::copy(distortion_out.data(), distortion_out.data() + 5, parameters + 4);
 
-    // 输出初始参数
     std::cout << "\nInitial parameters:" << std::endl;
     std::cout << std::fixed << std::setprecision(12);
     std::cout << "fx: " << parameters[0] << std::endl;
@@ -256,60 +253,47 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     init_intrinsics.p2 = distortion_out(3);
     init_intrinsics.k3 = distortion_out(4);
 
-    // 创建优化问题
     ceres::Problem::Options problem_options;
     problem_options.enable_fast_removal = true;
     ceres::Problem problem(problem_options);
 
-    // 添加参数块
     problem.AddParameterBlock(parameters, 9);
 
-    // 构建NID代价函数
     std::vector<std::shared_ptr<NIDCost>> nid_costs;
 
     for (int i = 0; i < dataset.size(); i++) {
         auto culled_points = view_culling.cull(dataset[i]->points, init_T_camera_lidar);
         cv::Mat normalized_image;
         dataset[i]->image.convertTo(normalized_image, CV_64FC1, 1.0 / 255.0);
-        // auto nid_cost = std::make_shared<NIDCost>(normalized_image, culled_points, params.nid_bins);
         std::shared_ptr<NIDCost> nid_cost(new NIDCost(normalized_image, culled_points, params.nid_bins));
         nid_costs.emplace_back(nid_cost);
     }
 
-    // 创建代价函数
     auto sum_nid = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
     for (const auto& nid_cost : nid_costs) {
         sum_nid->add(nid_cost);
     }
     auto complete_cost = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
-    *complete_cost = *sum_nid;  // 拷贝所有数据
-    delete sum_nid;  // 释放临时对象
+    *complete_cost = *sum_nid;  
+    delete sum_nid;  
 
-    // 创建代价函数并移交所有权
     auto* cost = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
-    // 拷贝数据
     *cost = *complete_cost;
-    delete complete_cost;  // 释放临时对象
+    delete complete_cost;  
 
-    // 创建AutoDiffFirstOrderFunction
     auto* first_order_function = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>(cost);
 
-    // 配置优化器
     ceres::GradientProblemSolver::Options options;
     options.update_state_every_iteration = true;
-    options.minimizer_progress_to_stdout = true;  // 这会启用默认的BFGS格式输出
+    options.minimizer_progress_to_stdout = true;  
     options.line_search_direction_type = ceres::BFGS;
 
-    // 构造梯度问题 - 这里是关键修改点
-    ceres::GradientProblem gradient_problem(first_order_function);  // 使用std::move转移所有权
-
-    // 求解优化问题
+    ceres::GradientProblem gradient_problem(first_order_function); 
     ceres::GradientProblemSolver::Summary summary;
     ceres::Solve(options, gradient_problem, parameters, &summary);
 
     current_cost = summary.final_cost;
 
-    // 输出最终结果
     std::cout << "\n=== Optimization Results ===" << std::endl;
     std::cout << "\nFinal parameters:" << std::endl;
     std::cout << "fx: " << parameters[0] << std::endl;
@@ -322,38 +306,30 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     std::cout << "p2: " << parameters[7] << std::endl;
     std::cout << "k3: " << parameters[8] << std::endl;
 
-    // 构造返回结果
     Eigen::Vector4d final_intrinsics;
     final_intrinsics << parameters[0], parameters[1], parameters[2], parameters[3];
 
-    // 优化完成后，更新 proj_update 的参数
-    // sheng 优化完的 局部变量更新到 proj_update 给下次使用
     Eigen::VectorXd new_intrinsics(4);
     new_intrinsics << parameters[0], parameters[1], parameters[2], parameters[3];
     Eigen::VectorXd new_distortion(5);
     new_distortion << parameters[4], parameters[5], parameters[6], parameters[7], parameters[8];
 
     std::cout << "summary_cost: " << summary.final_cost << std::endl;
-    
-    // 转换参数类型
+
     std::vector<double> intrinsics_vec = toStdVector(new_intrinsics);
     std::vector<double> distortion_vec = toStdVector(new_distortion);
     
-    // 创建新的相机实例并转换为非常量指针
     proj_update = std::const_pointer_cast<camera::GenericCameraBase>(
         camera::create_camera("plumb_bob", intrinsics_vec, distortion_vec));
 
-    // 清理内存
     delete[] parameters;
 
     return std::make_tuple(final_intrinsics, new_distortion, init_T_camera_lidar);
 }
 
-// 完整的 LM优化
 std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> 
 VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_camera_lidar) {
     std::cout << "=== LM Optimization ===" << std::endl;
-    // 初始化参数
     Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics();
     Eigen::VectorXd distortion_out = proj_update->get_distortion_coeffs();
 

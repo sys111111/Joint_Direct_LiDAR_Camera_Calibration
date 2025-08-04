@@ -2,9 +2,10 @@
 
 ## Direct, Targetless and Automatic Joint Calibration of LiDAR-Camera Intrinsic and Extrinsic
 
-### 📢 News
+### News
 
 - 🎉 **2025-06-15**:  **Accepted by IROS '25!** **Congratulations!**
+- 📢 **2025-03-02**:  **Submitted to IROS '25!**
 
 ## 1. Introduction
 
@@ -20,11 +21,17 @@ This packgage presents a direct, targetless, and automatic LiDAR-camera joint ca
 
 You can download our High-definited video from the [**Geogle Link**](https://drive.google.com/file/d/1w1GhRpAkfbL3mwY6MtnTWDE880ACQ6BN/view?usp=drive_link) to gain more detailed insights into this work.
 
-### 1.3 Related Self-integrated Dataset
+### 1.3 Pdf
+
+You can download the pdf format from the link below:
+
+[Download PDF](pics/iros25.pdf)
+
+### 1.4 Related Self-integrated Dataset
 
 Our self-integrated dataset [**LiDAR_Camera_Data**](https://drive.google.com/file/d/1ZrnEVT-IEMSipSpJhIkiJ8cF-CXso1HO/view?usp=sharing) which simultaneously incorporates synchronized LiDAR and camera data, is also publicly available online for benchmarking and evaluation purposes.
 
-### 1.4 Related Work
+### 1.5 Related Work
 
 This work builds upon and enhances the methodology for extrinsic calibration introduced by Koide et al. [[1]](#1), providing improved accuracy for both intrinsic and extrinsic calibration mothod in real-world applications.
 
@@ -147,8 +154,8 @@ catkin_ws is your own workspace.
 ### 4.3 Preprocessing the LiDAR and Camera Data:
 
 **Note:** Before running the command, please note:  
-- **`--camera_model plumb_bob`**: only the pinhole model is supported at this package version, so we specify `plumb_bob`.  
-- **`--camera_intrinsics 0,0,0,0`** & **`--camera_distortion_coeffs 0,0,0,0,0`**: set to zero for now. These will be provided in subsequent commands. 
+- **`camera_model plumb_bob`**: only the pinhole model is supported at this package version, so we specify `plumb_bob`.  
+- **`camera_intrinsics 0,0,0,0`** & **`camera_distortion_coeffs 0,0,0,0,0`**: have been initialized to zero. These values will be updated with actual calibration data in subsequent commands.
 - **`<YOUR_BAG_PATH>`**: replace with the path to your own bag directory.  
 - **`<YOUR_OUTPUT_PATH>`**: replace with your own output folder (it will be created automatically if it doesn’t exist).
 
@@ -177,7 +184,7 @@ rosrun joint_calibration superglue_matches.py \
 Before running this command, prepare your CAD-derived Camera-to-LiDAR extrinsic transform (`<LiDAR_T_Camera>`) in the 7-element quaternion format: [tx, ty, tz, qx, qy, qz, qw], 
 where the first three entries (`tx, ty, tz`) are the translation (in meters) and the last four (`qx, qy, qz, qw`) are the rotation quaternion.
 
-In the example [0.05643, 0.00039, 0.06362, -0.5, 0.5, -0.5, 0.5] below:
+`[0.05643, 0.00039, 0.06362, -0.5, 0.5, -0.5, 0.5]` is the initial extrinsic for our CAD model in the example dataset. In the example `[0.05643, 0.00039, 0.06362, -0.5, 0.5, -0.5, 0.5]` below:
 
 - **Translation** = `[0.05643, 0.00039, 0.06362]`  
 - **Rotation (qx, qy, qz, qw)** = `[-0.5, 0.5, -0.5, 0.5]`
@@ -197,7 +204,12 @@ rosrun joint_calibration initial_guess_auto \
   <YOUR_OUTPUT_PATH>
 ```
 
-**Recommendation**: If subsequent optimization fails to converge using these intrinsic From SuperGlue, it is recommended to replace them with initial values obtained from the **target-based** (such as calibration-board) method.
+**Recommendation**: If subsequent optimization fails to converge using these intrinsic From SuperGlue, it is recommended to replace them with initial values obtained from the **target-based** (such as checkerboard) method.
+
+In the example dataset, the intrinsic parameters and distortion coefficients obtained using the target-based method are shown below:
+
+- **Intrinsic Parameters** = `[1273.533320584207, 1276.5867266684963, 630.1371606171485, 526.5235964406237]`  
+- **Distortion Coefficients** = `[-0.089167804993, 0.13391534789, -0.00291694989, -0.00229012, 0.0]`
 
 ### 4.7 Intrinsic Calibration Optimization
 
@@ -249,8 +261,12 @@ Stop recording all topics. Proceed with data validation and downstream processin
 Data collection example for Livox Avia:
 
 <div align="center">
-    <img src="pics/Example.png" width = 30% >
+    <img src="pics/Example.png" width = 33% >
 </div>
+
+## 6. License && Contact
+
+The source code of this package is released under the MIT license. If you have any problems, please contact the author at <sys2048194132@sjtu.edu.cn>
 
 ## **References**
 

@@ -72,18 +72,19 @@ public:
 
     const Eigen::Isometry3d init_T_camera_lidar = init_T_lidar_camera.inverse();
 
+    // viewer initializing
     auto viewer = guik::LightViewer::instance(Eigen::Vector2i(-1, -1), vm.count("background"));
     viewer->set_draw_xy_grid(false);
     viewer->use_arcball_camera_control();
 
     viewer->invoke([] {
-      ImGui::SetNextWindowPos({55, 300}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({60, 1300}, ImGuiCond_Once);
       ImGui::Begin("texts");
       ImGui::End();
-      ImGui::SetNextWindowPos({55, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1200, 60}, ImGuiCond_Once);
       ImGui::Begin("visualizer");
       ImGui::End();
-      ImGui::SetNextWindowPos({1260, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Once);
       ImGui::Begin("images");
       ImGui::End();
     });

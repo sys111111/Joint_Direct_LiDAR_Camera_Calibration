@@ -25,13 +25,13 @@ public:
     nelder_mead_convergence_criteria = 1e-8;
   }
 
-  int max_outer_iterations;   ///< Maximum number of outer iterations
-  int max_inner_iterations;   ///< Maximum number of inner iterations (Nelder-Mead iterations)
-  double delta_trans_thresh;  ///< Convergence criteria of the outer loop
-  double delta_rot_thresh;    ///< Convergence threshold for rotation
+  int max_outer_iterations;   
+  int max_inner_iterations;   
+  double delta_trans_thresh;  
+  double delta_rot_thresh;    
 
-  bool disable_z_buffer_culling;  ///< If true, do not remove hidden points
-  int nid_bins;                   ///< Number of histogram bins for NID computation
+  bool disable_z_buffer_culling;  
+  int nid_bins;                   
 
   RegistrationType registration_type;
   double nelder_mead_init_step;
@@ -42,12 +42,10 @@ public:
 
 class VisualCameraCalibration {
 public:
-  // Constructor declaration
   VisualCameraCalibration(const camera::GenericCameraBase::ConstPtr& proj, 
                           const std::vector<VisualLiDARData::ConstPtr>& dataset, 
                           const VisualCameraCalibrationParams& params = VisualCameraCalibrationParams());
 
-  // Function declarations
   std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> calibrate(const Eigen::Isometry3d& init_T_camera_lidar);
   Eigen::Isometry3d calibrate_ex(const Eigen::Isometry3d& init_T_camera_lidar);
 
@@ -58,26 +56,26 @@ public:
   Eigen::Isometry3d estimate_pose_bfgs(const Eigen::Isometry3d& init_T_camera_lidar);
 
   struct OptimizationData {
-    int outer_iteration;  // Outer loop iteration number
+    int outer_iteration;  
     double cost;
     double fx, fy, cx, cy;
     double k1, k2, p1, p2, k3;
   };
 
 private:
-  // Private members
   const VisualCameraCalibrationParams params;
 
   std::vector<double> toStdVector(const Eigen::VectorXd& vec) const {
       return std::vector<double>(vec.data(), vec.data() + vec.size());
   }
 
-  camera::GenericCameraBase::Ptr proj_update;  // Updated camera projection
+  camera::GenericCameraBase::Ptr proj_update;  
 
-  const camera::GenericCameraBase::ConstPtr proj;  // Original camera projection
-  const std::vector<VisualLiDARData::ConstPtr> dataset;  // Dataset containing LiDAR data
-  std::vector<OptimizationData> optimization_data;  // Stores optimization data for each iteration
-  double current_cost = 0.0;  // Stores the current cost during optimization
+  const camera::GenericCameraBase::ConstPtr proj;  
+  const std::vector<VisualLiDARData::ConstPtr> dataset;  
+  std::vector<OptimizationData> optimization_data;  
+  double current_cost = 0.0; 
+
 };
 
 }  // namespace vlcal

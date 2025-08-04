@@ -101,6 +101,12 @@
         "csetjmp": "cpp",
         "slist": "cpp",
         "span": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "charconv": "cpp",
+        "coroutine": "cpp",
+        "cuchar": "cpp",
+        "rope": "cpp",
+        "numbers": "cpp",
+        "scoped_allocator": "cpp"
     }
 }

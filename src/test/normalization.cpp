@@ -54,21 +54,12 @@ int main(int argc, char** argv) {
     ply.intensities.emplace_back(voxel.second.w());
   }
 
-  glk::save_ply_binary("/home/koide/points.ply", ply);
-
   auto viewer = guik::LightViewer::instance();
   auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(ply.vertices);
   cloud_buffer->add_intensity(glk::COLORMAP::TURBO, ply.intensities, 1.0 / *std::max_element(ply.intensities.begin(), ply.intensities.end()));
   viewer->update_drawable("points", cloud_buffer, guik::VertexColor());
   viewer->spin();
   */
-
-  auto ply = glk::load_ply("/home/koide/points.ply");
-
-  std::ofstream ofs("/home/koide/intensities.txt");
-  for (int i = 0; i<ply->vertices.size(); i++) {
-    ofs << ply->vertices[i].transpose() << " " << ply->intensities[i] << std::endl;
-  }
 
   return 0;
 }

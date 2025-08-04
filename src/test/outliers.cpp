@@ -100,7 +100,6 @@ public:
       cv::line(canvas, pt_c, pt_l, color, 2);
     }
 
-    cv::imwrite("/home/koide/corrs.jpg", canvas);
     cv::imshow("canvas", canvas);
     cv::waitKey(0);
   }

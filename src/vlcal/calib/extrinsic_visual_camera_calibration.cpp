@@ -38,7 +38,6 @@ EXVisualCameraCalibration::EXVisualCameraCalibration(
 
   }
 
-//shen 标定函数用来最后优化的函数
 Eigen::Isometry3d EXVisualCameraCalibration::extrinsic_calibrate(const Eigen::Isometry3d& init_T_camera_lidar) {
   Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar;
 
@@ -64,70 +63,6 @@ Eigen::Isometry3d EXVisualCameraCalibration::extrinsic_calibrate(const Eigen::Is
       break;
     }
   }
-
-  return T_camera_lidar;
-}
-
-//shen nelder_mead优化
-Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_nelder_mead(const Eigen::Isometry3d& init_T_camera_lidar) {
-  ViewCullingParams view_culling_params;
-  view_culling_params.enable_depth_buffer_culling = !params_.disable_z_buffer_culling;
-
-  Eigen::Vector2i image_size(dataset_.front()->image.cols, dataset_.front()->image.rows);
-
-  ViewCulling view_culling(proj_, image_size, view_culling_params);
-
-//   ViewCulling view_culling(proj, {dataset.front()->image.cols, dataset.front()->image.rows}, view_culling_params);
-
-  std::vector<CostCalculator::Ptr> costs;
-  for (const auto& data : dataset_) {
-    // Remove hidden points
-    auto culled_points = view_culling.cull(data->points, init_T_camera_lidar);
-    auto new_data = std::make_shared<VisualLiDARData>(data->image, culled_points);
-
-    // Create NID cost
-    NIDCostParams nid_params;
-    nid_params.bins = params_.nid_bins;
-    costs.emplace_back(std::make_shared<CostCalculatorNID>(proj_, new_data, nid_params));
-
-  }
-
-  double best_cost = std::numeric_limits<double>::max();
-
-  const auto f = [&](const gtsam::Vector6& x) {
-    const Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar * Eigen::Isometry3d(gtsam::Pose3::Expmap(x).matrix());
-    double sum_costs = 0.0;
-
-#pragma omp parallel for reduction(+ : sum_costs)
-    for (int i = 0; i < costs.size(); i++) {
-      sum_costs += costs[i]->calculate(T_camera_lidar);
-    }
-
-    if (sum_costs < best_cost) {
-      best_cost = sum_costs;
-      params_.callback(T_camera_lidar);
-      std::cout << "cost:" << best_cost << std::endl;
-    }
-
-    return sum_costs;
-  };
-
-  // Optimize
-  dfo::NelderMead<6>::Params nelder_mead_params;
-  nelder_mead_params.init_step = params_.nelder_mead_init_step;
-  nelder_mead_params.convergence_var_thresh = params_.nelder_mead_convergence_criteria;
-  nelder_mead_params.max_iterations = params_.max_inner_iterations;
-  dfo::NelderMead<6> optimizer(nelder_mead_params);
-  auto result = optimizer.optimize(f, gtsam::Vector6::Zero());
-
-  const Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar * Eigen::Isometry3d(gtsam::Pose3::Expmap(result.x).matrix());
-
-  std::stringstream sst;
-  sst << boost::format("Inner optimization (Nelder-Mead) terminated after %d iterations") % result.num_iterations << std::endl;
-  sst << boost::format("Final cost: %.3f") % result.y << std::endl;
-  sst << "--- T_camera_lidar ---" << std::endl << T_camera_lidar.matrix();
-
-  guik::LightViewer::instance()->append_text(sst.str());
 
   return T_camera_lidar;
 }
@@ -184,12 +119,10 @@ private:
 Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Isometry3d& init_T_camera_lidar) {
   ViewCullingParams view_culling_params;
   view_culling_params.enable_depth_buffer_culling = !params_.disable_z_buffer_culling;
-//   auto generic_proj = std::static_pointer_cast<const camera::GenericCameraBase>(proj);
 
   Eigen::Vector2i image_size(dataset_.front()->image.cols, dataset_.front()->image.rows);
 
   ViewCulling view_culling(proj_, image_size, view_culling_params);
-//   ViewCulling view_culling(proj, {dataset.front()->image.cols, dataset.front()->image.rows}, view_culling_params);
 
   Sophus::SE3d T_camera_lidar(init_T_camera_lidar.matrix());
 
@@ -211,12 +144,10 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
   sum_nid->add(nid_cost);
   }
 
-  // 创建完备的代价函数拷贝
   auto complete_cost = std::make_unique<MultiNIDCost>(T_camera_lidar);
-  *complete_cost = *sum_nid;  // 拷贝所有数据
-  delete sum_nid;  // 释放临时对象
+  *complete_cost = *sum_nid;  
+  delete sum_nid;  
 
-  // 创建自动求导的一阶函数
   // auto cost = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, Sophus::SE3d::num_parameters>(
   //   std::move(complete_cost)
   // );
@@ -227,7 +158,6 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
     Sophus::SE3d::num_parameters
   >(raw_functor);
 
-  // 构造梯度问题
   ceres::GradientProblem problem(
     cost,
     new Sophus::Manifold<Sophus::SE3>()
@@ -243,7 +173,7 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
     return ceres::CallbackReturnType::SOLVER_CONTINUE;
   }));
 
-  //shen BFGS优化
+  //shen BFGS
   ceres::GradientProblemSolver::Summary summary;
   ceres::Solve(options, problem, T_camera_lidar.data(), &summary);
 

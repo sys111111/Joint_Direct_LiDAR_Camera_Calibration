@@ -25,16 +25,16 @@ public:
 
     auto viewer = guik::LightViewer::instance();
     viewer->invoke([] {
-      ImGui::SetNextWindowPos({55, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1300, 60}, ImGuiCond_Once);
       ImGui::Begin("visualizer");
       ImGui::End();
       ImGui::SetNextWindowPos({55, 150}, ImGuiCond_Once);
       ImGui::Begin("data selection");
       ImGui::End();
-      ImGui::SetNextWindowPos({55, 300}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({60, 1200}, ImGuiCond_Once);
       ImGui::Begin("texts");
       ImGui::End();
-      ImGui::SetNextWindowPos({1260, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Once);
       ImGui::Begin("images");
       ImGui::End();
     });

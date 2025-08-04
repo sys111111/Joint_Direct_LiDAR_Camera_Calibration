@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include <algorithm>
 #include <sophus/se3.hpp>
 #include <opencv2/core.hpp>
@@ -109,6 +111,8 @@ public:
                 << get_real(NID)           << std::endl;
       return false;
     }
+
+    std::cout << "NID: " << get_real(NID) << std::endl;
 
     residual[0] = NID;
     return true;

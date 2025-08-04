@@ -23,14 +23,14 @@
 #   /home/syss/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
 
 ## intrinsics_calibrate ##
-# cd build/devel/lib/joint_calibration &&
-#   ./intrinsics_calibrate \
-#   /home/syss/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
-
-## intrinsics_calibrate ##
 cd build/devel/lib/joint_calibration &&
-  ./extrinsics_calibrate \
+  ./intrinsics_calibrate \
   /home/syss/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
+
+## extrinsics_calibrate ##
+# cd build/devel/lib/joint_calibration &&
+#   ./extrinsics_calibrate \
+#   /home/syss/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
 
 # cd build/devel/lib/joint_calibration &&
 #   gdb --args ./extrinsics_calibrate \

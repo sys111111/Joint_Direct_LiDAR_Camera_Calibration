@@ -11,7 +11,6 @@
 #include <guik/viewer/light_viewer.hpp>
 
 int main(int argc, char** argv) {
-  rosbag::Bag bag("/home/koide/datasets/lidar_camera/ouster_data/00_2022-09-05-15-36-26.bag");
   if (!bag.isOpen()) {
     std::cerr << "error: failed to open the rosbag!!" << std::endl;
     return 1;
@@ -20,7 +19,6 @@ int main(int argc, char** argv) {
   auto viewer = guik::LightViewer::instance();
   viewer->set_draw_xy_grid(false);
 
-  const auto ply = glk::load_ply("/home/koide/datasets/lidar_camera/ouster_pinhole_all/00_2022-09-05-15-36-26.bag.ply");
   auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(ply->vertices);
   cloud_buffer->add_intensity(glk::COLORMAP::TURBO, ply->intensities);
   viewer->update_drawable("dense", cloud_buffer, guik::VertexColor());
