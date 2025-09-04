@@ -38,6 +38,8 @@ public:
   double nelder_mead_convergence_criteria;
 
   std::function<void(const Eigen::Isometry3d& T_camera_lidar)> callback;
+
+  std::function<void(const Eigen::Vector4d& intrinsics, const Eigen::VectorXd& distortion)> intrinsic_callback;
 };
 
 class VisualCameraCalibration {

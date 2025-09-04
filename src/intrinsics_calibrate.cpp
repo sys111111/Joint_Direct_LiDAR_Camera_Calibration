@@ -105,31 +105,37 @@ public:
     params.nelder_mead_convergence_criteria = vm["nelder_mead_convergence_criteria"].as<double>();
     const std::string registration_type = vm["registration_type"].as<std::string>();
 
-    params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) { 
-        vis.set_T_camera_lidar(T_camera_lidar); 
+    params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) {
+      vis.set_T_camera_lidar(T_camera_lidar);
+    };
+
+    params.intrinsic_callback = [&](const Eigen::Vector4d& intr,
+                                    const Eigen::VectorXd& dist) {
+      std::vector<double> ivec{intr[0], intr[1], intr[2], intr[3]};
+      std::vector<double> dvec{dist[0], dist[1], dist[2], dist[3], dist[4]};
+      proj = camera::create_camera(camera_model, ivec, dvec);
+      vis.set_camera(proj);
     };
     
     VisualCameraCalibration calib(proj, dataset, params);
     
-    std::atomic_bool optimization_terminated = false;
-    Eigen::Vector4d final_intrinsics;
-    Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar;
-    Eigen::VectorXd final_distortion(5);
+    std::atomic_bool done{false};
+    Eigen::Vector4d  final_intrinsics;
+    Eigen::VectorXd  final_distortion(5);
+    Eigen::Isometry3d final_T_camera_lidar = init_T_camera_lidar;
 
-    std::thread optimization_thread([&] {
-      auto [camera_intrinsics, camera_distortion, T_camera_lidar_result] = calib.calibrate(init_T_camera_lidar);
-      std::cout << "calibrate finish!" << std::endl;
-      final_intrinsics = camera_intrinsics;
-      final_distortion = camera_distortion;
-      T_camera_lidar = T_camera_lidar_result;
-      optimization_terminated = true;
+    std::thread worker([&](){
+      std::tie(final_intrinsics, final_distortion, final_T_camera_lidar)
+          = calib.calibrate(init_T_camera_lidar);
+      done = true;
     });
 
-    while (!optimization_terminated) {
+    while (!done) {
       vis.spin_once();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-
-    optimization_thread.join();
+    
+    worker.join();
 
     std::stringstream sst;
     sst << "--- Camera Intrinsics ---" << std::endl;

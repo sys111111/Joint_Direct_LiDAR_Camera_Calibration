@@ -139,29 +139,18 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
     nid_costs.emplace_back(nid_cost);
   }
 
-    auto sum_nid = new MultiNIDCost(T_camera_lidar);
+  auto sum_nid = std::make_unique<MultiNIDCost>(T_camera_lidar);
   for (const auto& nid_cost : nid_costs) {
-  sum_nid->add(nid_cost);
+    sum_nid->add(nid_cost);
   }
 
-  auto complete_cost = std::make_unique<MultiNIDCost>(T_camera_lidar);
-  *complete_cost = *sum_nid;  
-  delete sum_nid;  
+  auto cost = std::make_unique<
+    ceres::AutoDiffFirstOrderFunction<MultiNIDCost, Sophus::SE3d::num_parameters>
+  >(std::move(sum_nid));
 
-  // auto cost = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, Sophus::SE3d::num_parameters>(
-  //   std::move(complete_cost)
-  // );
+  auto manifold = std::make_unique<Sophus::Manifold<Sophus::SE3>>();
 
-  MultiNIDCost* raw_functor = complete_cost.release();
-  auto* cost = new ceres::AutoDiffFirstOrderFunction<
-    MultiNIDCost,
-    Sophus::SE3d::num_parameters
-  >(raw_functor);
-
-  ceres::GradientProblem problem(
-    cost,
-    new Sophus::Manifold<Sophus::SE3>()
-  );
+  ceres::GradientProblem problem(std::move(cost), std::move(manifold));
 
   ceres::GradientProblemSolver::Options options;
   options.minimizer_progress_to_stdout = true;

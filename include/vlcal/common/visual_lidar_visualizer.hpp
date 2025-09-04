@@ -35,6 +35,8 @@ public:
   int get_selected_bag_id() const { return selected_bag_id; }
   double get_image_display_scale() const { return image_display_scale; }
 
+  void set_camera(const camera::GenericCameraBase::ConstPtr& proj_new);
+
   bool spin_once();
 
 private:
@@ -45,7 +47,7 @@ private:
   const bool draw_sphere;
   const bool show_image_cv;
 
-  const camera::GenericCameraBase::ConstPtr proj;
+  camera::GenericCameraBase::ConstPtr proj;
   const std::vector<VisualLiDARData::ConstPtr> dataset;
 
   double image_display_scale;

@@ -2,6 +2,7 @@
 #include <typeinfo>
 #include <sstream>
 #include <iomanip>
+#include <memory>
 
 #include <fstream>
 #include <chrono>
@@ -81,6 +82,10 @@ std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> VisualCameraCali
             auto [intrinsics, distortion, new_T_camera_lidar] = estimate_intrinsic_LM(init_T_camera_lidar);
             final_intrinsics = intrinsics;
             new_distortion = distortion;
+        }
+
+        if (params.intrinsic_callback) {
+          params.intrinsic_callback(final_intrinsics, new_distortion);
         }
 
         OptimizationData data;
@@ -269,26 +274,40 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
         nid_costs.emplace_back(nid_cost);
     }
 
-    auto sum_nid = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
+    auto cost = std::make_unique<MultiNIDCost>(init_intrinsics, init_T_camera_lidar);
+
     for (const auto& nid_cost : nid_costs) {
-        sum_nid->add(nid_cost);
+        cost->add(nid_cost);
     }
-    auto complete_cost = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
-    *complete_cost = *sum_nid;  
-    delete sum_nid;  
 
-    auto* cost = new MultiNIDCost(init_intrinsics, init_T_camera_lidar);
-    *cost = *complete_cost;
-    delete complete_cost;  
+    auto first_order_function =
+    std::make_unique<ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>>(std::move(cost));
 
-    auto* first_order_function = new ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>(cost);
+    ceres::GradientProblem gradient_problem(std::move(first_order_function));
 
     ceres::GradientProblemSolver::Options options;
     options.update_state_every_iteration = true;
-    options.minimizer_progress_to_stdout = true;  
+    options.minimizer_progress_to_stdout = true;
     options.line_search_direction_type = ceres::BFGS;
 
-    ceres::GradientProblem gradient_problem(first_order_function); 
+    struct InnerIterCB : public ceres::IterationCallback {
+    const VisualCameraCalibrationParams& params;
+    const camera::GenericCameraBase::Ptr proj_upd;
+    InnerIterCB(const VisualCameraCalibrationParams& p,
+                const camera::GenericCameraBase::Ptr& pu)
+        : params(p), proj_upd(pu) {}
+    ceres::CallbackReturnType operator()(const ceres::IterationSummary&) override {
+        if (params.intrinsic_callback) {
+        Eigen::Vector4d ci = proj_upd->get_intrinsics();
+        Eigen::VectorXd cd = proj_upd->get_distortion_coeffs();
+        params.intrinsic_callback(ci, cd);
+        }
+        return ceres::SOLVER_CONTINUE;
+    }
+    };
+
+    options.callbacks.push_back(new InnerIterCB(params, proj_update));
+
     ceres::GradientProblemSolver::Summary summary;
     ceres::Solve(options, gradient_problem, parameters, &summary);
 
@@ -346,7 +365,7 @@ VisualCameraCalibration::estimate_intrinsic_LM(const Eigen::Isometry3d& init_T_c
     init_intrinsics.k2 = distortion_out(1);
     init_intrinsics.p1 = distortion_out(2);
     init_intrinsics.p2 = distortion_out(3);
-    init_intrinsics.k3 = distortion_out(3);
+    init_intrinsics.k3 = distortion_out(4);
 
     ViewCullingParams view_culling_params;
     view_culling_params.enable_depth_buffer_culling = !this->params.disable_z_buffer_culling;
