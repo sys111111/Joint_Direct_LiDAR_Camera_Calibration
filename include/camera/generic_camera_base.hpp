@@ -23,7 +23,6 @@ public:
   GenericCameraBase() {}
   virtual ~GenericCameraBase() {}
 
-  // shen 添加获取内参和畸变系数的纯虚函数
     virtual Eigen::VectorXd get_intrinsics() const = 0;
     virtual Eigen::VectorXd get_distortion_coeffs() const = 0;
 
@@ -41,7 +40,6 @@ public:
    * @brief Projection with autodiff
    * @note  Is there a better way to accept Jets with different number of params without exposing the implementation of the projection func?
    */
-  // sheng 运算符重载()
   virtual Eigen::Matrix<ceres::Jet<double, 7>, 2, 1> operator()(const Eigen::Matrix<ceres::Jet<double, 7>, 3, 1>& point_3d) const = 0;
 };
 

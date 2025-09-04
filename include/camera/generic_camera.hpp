@@ -20,7 +20,6 @@ public:
       : intrinsic(intrinsics), distortion(distortion_coeffs)
       {}
   
-  // shen 实现获取内参和畸变系数的方法
   virtual Eigen::VectorXd get_intrinsics() const override {
     // std::cout << "get_intrinsics called, size: " << intrinsic.size() << std::endl;
     return intrinsic;

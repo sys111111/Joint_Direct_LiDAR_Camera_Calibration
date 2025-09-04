@@ -56,7 +56,6 @@ double CostCalculatorNID::calculate(const Eigen::Isometry3d& T_camera_lidar) {
   const Eigen::VectorXd hist_r = hist_image.cast<double>() / sum;
   const Eigen::VectorXd hist_s = hist_points.cast<double>() / sum;
   
-  //shen NID
   const double Hr = -(hist_r.array() * (hist_r.array() + 1e-6).log()).sum();
   const double Hs = -(hist_s.array() * (hist_s.array() + 1e-6).log()).sum();
   const double Hrs = -(hist_rs.array() * (hist_rs.array() + 1e-6).log()).sum();

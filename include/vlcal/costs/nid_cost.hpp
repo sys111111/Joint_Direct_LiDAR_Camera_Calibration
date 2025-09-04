@@ -63,7 +63,6 @@ public:
         const T p2 = intrinsics.p2;
         const T k3 = intrinsics.k3;
 
-        // 初始化直方图
         Eigen::Matrix<T, -1, -1> hist = Eigen::Matrix<T, -1, -1>::Zero(bins, bins);
         Eigen::Matrix<T, -1, 1> hist_image = Eigen::Matrix<T, -1, 1>::Zero(bins);
         Eigen::VectorXd hist_points = Eigen::VectorXd::Zero(bins);
@@ -77,10 +76,8 @@ public:
             pt[1] = T(points->points[i].y());
             pt[2] = T(points->points[i].z());
             
-            // 转换到相机坐标系
             Eigen::Matrix<T, 3, 1> pt_camera = R * pt + t;
             
-            // 检查深度
             if (pt_camera[2] <= T(0)) {
                 num_outliers++;
                 continue;
@@ -89,14 +86,11 @@ public:
             const double intensity = points->intensities[i];
             const int bin_points = std::max<int>(0, std::min<int>(bins - 1, intensity * bins));
 
-            // 投影点计算
             const Eigen::Matrix<T, 2, 1> pt_normalized(
                 pt_camera[0] / pt_camera[2],
                 pt_camera[1] / pt_camera[2]
             );
 
-            //shen 这里修改畸变参数
-            // // 畸变计算
             // const T x2 = pt_normalized.x() * pt_normalized.x();
             // const T y2 = pt_normalized.y() * pt_normalized.y();
             // const T xy = pt_normalized.x() * pt_normalized.y();
@@ -104,10 +98,8 @@ public:
             // const T r4 = r2 * r2;
             // const T r6 = r2 * r4;
 
-            // // 径向畸变
             // const T r_coeff = T(1) + k1 * r2 + k2 * r4 + k3 * r6;
 
-            // // 切向畸变
             // const T t_coeff1 = T(2) * xy;
             // const T t_coeff2 = r2 + T(2) * x2;
             // const T t_coeff3 = r2 + T(2) * y2;
@@ -118,18 +110,15 @@ public:
             const T xd = pt_camera[0] / pt_camera[2];
             const T yd = pt_camera[1] / pt_camera[2];
             
-            // 投影到像素平面
             Eigen::Matrix<T, 2, 1> projected;
             projected[0] = fx * xd + cx;
             projected[1] = fy * yd + cy;
 
-            // 计算整数坐标
             const Eigen::Vector2i knot_i(
                 std::floor(get_real(projected[0])), 
                 std::floor(get_real(projected[1]))
             );
 
-            // 边界检查
             if ((knot_i.array() < Eigen::Array2i(0, 0)).any() || 
                 (knot_i.array() >= Eigen::Array2i(normalized_image.cols, normalized_image.rows)).any()) {
                 num_outliers++;
@@ -139,7 +128,6 @@ public:
             num_valid_points++;
             hist_points[bin_points]++;
 
-            // 计算样条系数
             const Eigen::Matrix<T, 2, 1> s = projected - knot_i.cast<T>();
             
             Eigen::Matrix<T, 4, 2> se;
@@ -150,14 +138,12 @@ public:
 
             const Eigen::Matrix<T, 4, 2> beta = spline_coeffs * se;
 
-            // 计算样条点
             Eigen::Array4i knots_x(knot_i.x() - 1, knot_i.x(), knot_i.x() + 1, knot_i.x() + 2);
             Eigen::Array4i knots_y(knot_i.y() - 1, knot_i.y(), knot_i.y() + 1, knot_i.y() + 2);
             
             knots_x = knots_x.max(0).min(normalized_image.cols - 1);
             knots_y = knots_y.max(0).min(normalized_image.rows - 1);
 
-            // 更新直方图
             for (int i = 0; i < 4; i++) {
                 for (int j = 0; j < 4; j++) {
                     const T w = beta(i, 0) * beta(j, 1);
@@ -174,7 +160,6 @@ public:
             return false;
         }
 
-        // 归一化直方图
         const double sum = hist_points.sum();
 
         if (sum < 1e-8) {
@@ -186,7 +171,6 @@ public:
         hist_points = hist_points / sum;
         hist = hist / T(sum);
 
-        // 计算互信息和NID
         const T epsilon = T(1e-10);
         const T H_image = -(hist_image.array().max(epsilon) * 
                            (hist_image.array().max(epsilon)).log()).sum();
@@ -197,12 +181,11 @@ public:
         const T MI = H_image + T(H_points) - H_image_points;
         const T NID = (H_image_points - MI) / H_image_points;
 
-        // residual[0] = NID*T(100);
         residual[0] = NID;
 
         std::cout << "NID: " << get_real(NID) << std::endl;
 
-        // 调试输出if (ceres::isnan(get_real(NID))) {
+        // if (ceres::isnan(get_real(NID))) {
         // if (ceres::isnan(get_real(NID))) {
         //     std::cout << "Warning: NaN in NID computation" << std::endl;
         //     return false;
@@ -213,13 +196,11 @@ public:
         // static int write_index = 0;
 
         // if (!fileInitialized) {
-        //     // 生成时间戳文件名
         //     auto now = std::chrono::system_clock::now();
         //     auto now_c = std::chrono::system_clock::to_time_t(now);
         //     std::tm* t = std::localtime(&now_c);
 
         //     std::ostringstream oss;
-        //     //shen 写入文件的路径 nid
         //     oss << "/home/yishu/data_process/nid_cost_log_"
         //         << std::put_time(t, "%Y%m%d_%H%M%S")
         //         << ".csv";
@@ -234,7 +215,6 @@ public:
         //     ofs.open(csv_filepath, std::ios::app);
         // } else {
         //     ofs.open(csv_filepath);
-        //     // 写表头
         //     ofs << "index,NID_value" << std::endl;
         // }
 

@@ -160,7 +160,6 @@ private:
 
 }  // namespace vlcal
 
-// shen pipeline
 int main(int argc, char** argv) {
   using namespace boost::program_options;
   options_description description("calibrate");

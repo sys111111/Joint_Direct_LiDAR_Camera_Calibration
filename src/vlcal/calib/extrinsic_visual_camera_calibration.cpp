@@ -129,7 +129,6 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
   std::vector<std::shared_ptr<EXNIDCost>> nid_costs;
 
   for (int i = 0; i < dataset_.size(); i++) {
-    // Remove hidden points
     auto culled_points = view_culling.cull(dataset_[i]->points, init_T_camera_lidar);
 
     cv::Mat normalized_image;
@@ -162,7 +161,6 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
     return ceres::CallbackReturnType::SOLVER_CONTINUE;
   }));
 
-  //shen BFGS
   ceres::GradientProblemSolver::Summary summary;
   ceres::Solve(options, problem, T_camera_lidar.data(), &summary);
 

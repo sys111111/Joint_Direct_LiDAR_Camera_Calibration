@@ -183,7 +183,7 @@ public:
   
 private:
   const std::string data_path;
-  nlohmann::json config;// shen pipeline
+  nlohmann::json config;
 
 
   camera::GenericCameraBase::ConstPtr proj;
