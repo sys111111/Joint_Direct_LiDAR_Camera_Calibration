@@ -2,3 +2,6 @@ site/*
 pre*
 build/*
 models*
+
+# ignore large data
+*.bag
