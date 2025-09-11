@@ -5,3 +5,6 @@ models*
 
 # ignore large data
 *.bag
+
+# ignore large rosbag
+*.bag
