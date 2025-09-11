@@ -107,7 +107,8 @@
         "cuchar": "cpp",
         "rope": "cpp",
         "numbers": "cpp",
-        "scoped_allocator": "cpp"
+        "scoped_allocator": "cpp",
+        "netfwd": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++-9"
 }

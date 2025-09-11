@@ -81,18 +81,6 @@ void VisualLiDARVisualizer::set_T_camera_lidar(const Eigen::Isometry3d& T_camera
   this->T_camera_lidar = T_camera_lidar;
 }
 
-void VisualLiDARVisualizer::set_camera(const camera::GenericCameraBase::ConstPtr& proj_new) {
-  std::lock_guard<std::mutex> lock(updater_mutex);
-  proj = proj_new;
-  if (selected_bag_id >= 0) {
-    color_updater.reset(new PointsColorUpdater(proj,
-      dataset[selected_bag_id]->image,
-      dataset[selected_bag_id]->points));
-    guik::LightViewer::instance()
-      ->update_drawable("points", color_updater->cloud_buffer, guik::VertexColor());
-  }
-}
-
 bool VisualLiDARVisualizer::spin_once() {
   auto viewer = guik::LightViewer::instance();
   return viewer->spin_once();

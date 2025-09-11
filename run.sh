@@ -12,7 +12,7 @@
 # python3 superglue_matches.py /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2 --rotate_camera 0
 
 ## Initial Extrinsic From CAD ##
-# cd scripts/ && \
+# cd scripts/ &&
 # python initial_extrinsic.py \
 #   0.05643,0.00039,0.06362,-0.5,0.5,-0.5,0.5 \
 #   --data_path /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
@@ -22,12 +22,12 @@
 #   ./initial_guess_auto \
 #   /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
 
-## intrinsics_calibrate ##
-cd build/devel/lib/joint_calibration &&
-  gdb --args ./intrinsics_calibrate \
-  /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
-
-## extrinsics_calibrate ##
+# intrinsics_calibrate ##
 # cd build/devel/lib/joint_calibration &&
-#   ./extrinsics_calibrate \
+#   ./intrinsics_calibrate \
 #   /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2
+
+# ## extrinsics_calibrate ##
+cd build/devel/lib/joint_calibration &&
+  ./extrinsics_calibrate \
+  /home/yishu/Joint_Direct_LiDAR_Camera_Calibration/livox_data/pre_0716_data2

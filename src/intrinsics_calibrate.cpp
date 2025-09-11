@@ -84,13 +84,13 @@ public:
     viewer->use_arcball_camera_control();
 
     viewer->invoke([] {
-      ImGui::SetNextWindowPos({60, 1300}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1250, 200}, ImGuiCond_Once);
       ImGui::Begin("texts");
       ImGui::End();
-      ImGui::SetNextWindowPos({1200, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1260, 60}, ImGuiCond_Once);
       ImGui::Begin("visualizer");
       ImGui::End();
-      ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({60, 60}, ImGuiCond_Once);
       ImGui::Begin("images");
       ImGui::End();
     });
@@ -101,41 +101,33 @@ public:
     VisualCameraCalibrationParams params;
     params.disable_z_buffer_culling = vm.count("disable_culling");
     params.nid_bins = vm["nid_bins"].as<int>();
-    params.nelder_mead_init_step = vm["nelder_mead_init_step"].as<double>();
-    params.nelder_mead_convergence_criteria = vm["nelder_mead_convergence_criteria"].as<double>();
     const std::string registration_type = vm["registration_type"].as<std::string>();
 
-    params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) {
-      vis.set_T_camera_lidar(T_camera_lidar);
-    };
-
-    params.intrinsic_callback = [&](const Eigen::Vector4d& intr,
-                                    const Eigen::VectorXd& dist) {
-      std::vector<double> ivec{intr[0], intr[1], intr[2], intr[3]};
-      std::vector<double> dvec{dist[0], dist[1], dist[2], dist[3], dist[4]};
-      proj = camera::create_camera(camera_model, ivec, dvec);
-      vis.set_camera(proj);
+    params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) { 
+        vis.set_T_camera_lidar(T_camera_lidar); 
     };
     
     VisualCameraCalibration calib(proj, dataset, params);
     
-    std::atomic_bool done{false};
-    Eigen::Vector4d  final_intrinsics;
-    Eigen::VectorXd  final_distortion(5);
-    Eigen::Isometry3d final_T_camera_lidar = init_T_camera_lidar;
+    std::atomic_bool optimization_terminated = false;
+    Eigen::Vector4d final_intrinsics;
+    Eigen::Isometry3d T_camera_lidar = init_T_camera_lidar;
+    Eigen::VectorXd final_distortion(5);
 
-    std::thread worker([&](){
-      std::tie(final_intrinsics, final_distortion, final_T_camera_lidar)
-          = calib.calibrate(init_T_camera_lidar);
-      done = true;
+    std::thread optimization_thread([&] {
+      auto [camera_intrinsics, camera_distortion, T_camera_lidar_result] = calib.calibrate(init_T_camera_lidar);
+      std::cout << "calibrate finish!" << std::endl;
+      final_intrinsics = camera_intrinsics;
+      final_distortion = camera_distortion;
+      T_camera_lidar = T_camera_lidar_result;
+      optimization_terminated = true;
     });
 
-    while (!done) {
+    while (!optimization_terminated) {
       vis.spin_once();
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    
-    worker.join();
+
+    optimization_thread.join();
 
     std::stringstream sst;
     sst << "--- Camera Intrinsics ---" << std::endl;
@@ -184,8 +176,6 @@ public:
 private:
   const std::string data_path;
   nlohmann::json config;
-
-
   camera::GenericCameraBase::ConstPtr proj;
   std::vector<VisualLiDARData::ConstPtr> dataset;
 };
@@ -196,7 +186,6 @@ int main(int argc, char** argv) {
   using namespace boost::program_options;
   options_description description("calibrate");
 
-  // clang-format off
   description.add_options()
     ("help", "produce help message")
     ("data_path", value<std::string>(), "directory that contains preprocessed data")
@@ -204,12 +193,11 @@ int main(int argc, char** argv) {
     ("disable_culling", "disable depth buffer-based hidden points removal")
     ("nid_bins", value<int>()->default_value(16), "Number of histogram bins for NID")
     ("registration_type", value<std::string>()->default_value("nid_bfgs"), "nid_bfgs or nid_nelder_mead")
-    ("nelder_mead_init_step", value<double>()->default_value(1e-3), "Nelder-mead initial step size")
-    ("nelder_mead_convergence_criteria", value<double>()->default_value(1e-8), "Nelder-mead convergence criteria")
+    // ("nelder_mead_init_step", value<double>()->default_value(1e-3), "Nelder-mead initial step size")
+    // ("nelder_mead_convergence_criteria", value<double>()->default_value(1e-8), "Nelder-mead convergence criteria")
     ("auto_quit", "automatically quit after calibration")
     ("background", "hide viewer and run calibration in background")
   ;
-  // clang-format on
 
   positional_options_description p;
   p.add("data_path", 1);

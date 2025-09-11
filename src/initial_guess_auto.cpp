@@ -11,8 +11,8 @@
 #include <nlohmann/json.hpp>
 
 #include <ceres/ceres.h>
-#include <ceres/loss_function.h>           
-#include <sophus/se3.hpp>                  
+#include <ceres/loss_function.h>           // for CauchyLoss
+#include <sophus/se3.hpp>                  // for Sophus::SE3d
 #include <sophus/ceres_manifold.hpp>
 
 #include <vlcal/common/console_colors.hpp>
@@ -21,6 +21,9 @@
 
 namespace vlcal {
 
+//
+// Reprojection residual: optimize fx, fy, cx, cy, k1, k2, p1, p2 (k3 fixed = 0)
+//
 struct ReprojIntrinsicsCost {
   ReprojIntrinsicsCost(
       const Eigen::Vector3d& Xl,
@@ -30,29 +33,39 @@ struct ReprojIntrinsicsCost {
 
   template <typename T>
   bool operator()(T const* const intr_dist, T* residual) const {
+    // intr_dist = [ fx, fy, cx, cy, k1, k2, p1, p2 ]
+
+    // 1) Transform LiDAR point into camera frame
     Eigen::Matrix<T,3,1> Xc =
         T_Camera_Lidar.rotationMatrix().template cast<T>() * Xl_.template cast<T>()
       + T_Camera_Lidar.translation().template cast<T>();
 
+    // 2) Normalize to pinhole coordinates
     T xn = Xc.x() / Xc.z();
     T yn = Xc.y() / Xc.z();
 
+    // 3) Distortion parameters
     T k1 = intr_dist[4], k2 = intr_dist[5];
     T p1 = intr_dist[6], p2 = intr_dist[7];
     T r2 = xn*xn + yn*yn;
 
+    // radial distortion (k3 = 0)
     T radial = T(1) + k1*r2 + k2*r2*r2;
+    // tangential distortion
     T x_tang = T(2)*p1*xn*yn + p2*(r2 + T(2)*xn*xn);
     T y_tang = p1*(r2 + T(2)*yn*yn) + T(2)*p2*xn*yn;
 
+    // 4) Apply distortion
     T x_dist = radial*xn + x_tang;
     T y_dist = radial*yn + y_tang;
 
+    // 5) Project to pixel with intrinsics
     T fx = intr_dist[0], fy = intr_dist[1];
     T cx = intr_dist[2], cy = intr_dist[3];
     T u_hat = fx * x_dist + cx;
     T v_hat = fy * y_dist + cy;
 
+    // 6) Compute residuals
     residual[0] = T(uv_.x()) - u_hat;
     residual[1] = T(uv_.y()) - v_hat;
     return true;
@@ -67,6 +80,7 @@ class InitialGuessAuto {
 public:
   explicit InitialGuessAuto(const std::string& data_path)
     : data_path_(data_path) {
+    // 1) Load calib.json
     std::ifstream ifs(data_path_ + "/calib.json");
     if (!ifs) {
       std::cerr << console::bold_red
@@ -76,16 +90,19 @@ public:
     }
     ifs >> config_;
 
+    // 2) Build camera model
     const std::string cam_model = config_["camera"]["camera_model"].get<std::string>();
     const auto intr_init        = config_["camera"]["intrinsics"].get<std::vector<double>>();
     const auto dist_coeffs      = config_["camera"]["distortion_coeffs"].get<std::vector<double>>();
     proj_ = camera::create_camera(cam_model, intr_init, dist_coeffs);
 
+    // 3) Read initial extrinsic (init_T_lidar_camera): Camera→LiDAR
     auto v = config_["results"]["init_T_lidar_camera"];
     Eigen::Quaterniond q(v[6], v[3], v[4], v[5]);
     Eigen::Vector3d t(v[0], v[1], v[2]);
     T_Lidar_Camera = Sophus::SE3d(q, t);
 
+    // 4) Prepare neighbor offsets for index lookup
     constexpr int pw = 1;
     for (int i = -pw; i <= pw; ++i) {
       for (int j = -pw; j <= pw; ++j) {
@@ -95,6 +112,7 @@ public:
     std::sort(pick_offsets_.begin(), pick_offsets_.end(),
               [](auto const& a, auto const& b){ return a.squaredNorm() < b.squaredNorm(); });
 
+    // 5) Read correspondences from all bags
     auto bags = config_["meta"]["bag_names"].get<std::vector<std::string>>();
     for (auto const& bag : bags) {
       auto data = std::make_shared<VisualLiDARData>(data_path_, bag);
@@ -151,13 +169,15 @@ public:
   }
 
   void estimate_and_save() {
-    auto ini  = config_["camera"]["intrinsics"].get<std::vector<double>>();       
-    auto dist = config_["camera"]["distortion_coeffs"].get<std::vector<double>>(); 
+    // 1) Read initial intrinsics + distortion (k1,k2,p1,p2), drop k3
+    auto ini  = config_["camera"]["intrinsics"].get<std::vector<double>>();       // size>=4
+    auto dist = config_["camera"]["distortion_coeffs"].get<std::vector<double>>(); // size>=5
     double intr_dist[8] = {
       ini[0], ini[1], ini[2], ini[3],     // fx, fy, cx, cy
       dist[0], dist[1], dist[2], dist[3]  // k1, k2, p1, p2
     };
 
+    // 2) Build Ceres problem
     Sophus::SE3d T_Camera_Lidar = T_Lidar_Camera.inverse();
     ceres::Problem problem;
     problem.AddParameterBlock(intr_dist, 8);
@@ -168,6 +188,7 @@ public:
       problem.AddResidualBlock(func, new ceres::CauchyLoss(1.0), intr_dist);
     }
 
+    // 3) Solve
     ceres::Solver::Options opts;
     opts.linear_solver_type = ceres::DENSE_QR;
     opts.minimizer_progress_to_stdout = true;
@@ -175,6 +196,7 @@ public:
     ceres::Solve(opts, &problem, &summary);
     std::cout << summary.BriefReport() << std::endl;
 
+    // 4) Write back optimized intrinsics + distortion, append k3=0
     config_["camera"]["intrinsics"]        = { intr_dist[0], intr_dist[1], intr_dist[2], intr_dist[3] };
     config_["camera"]["distortion_coeffs"] = {
       intr_dist[4], intr_dist[5], intr_dist[6], intr_dist[7], 0.0

@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 
   auto viewer = guik::LightViewer::instance();
   viewer->set_draw_xy_grid(false);
-
+  
   auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(ply->vertices);
   cloud_buffer->add_intensity(glk::COLORMAP::TURBO, ply->intensities);
   viewer->update_drawable("dense", cloud_buffer, guik::VertexColor());

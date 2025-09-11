@@ -139,23 +139,23 @@ Eigen::Isometry3d EXVisualCameraCalibration::estimate_pose_bfgs(const Eigen::Iso
   }
 
   auto sum_nid = std::make_unique<MultiNIDCost>(T_camera_lidar);
+
   for (const auto& nid_cost : nid_costs) {
     sum_nid->add(nid_cost);
   }
 
-  auto cost = std::make_unique<
-    ceres::AutoDiffFirstOrderFunction<MultiNIDCost, Sophus::SE3d::num_parameters>
-  >(std::move(sum_nid));
+  auto complete_cost = std::make_unique<MultiNIDCost>(*sum_nid);
 
-  auto manifold = std::make_unique<Sophus::Manifold<Sophus::SE3>>();
+  std::unique_ptr<ceres::FirstOrderFunction> cost = std::make_unique<ceres::AutoDiffFirstOrderFunction<MultiNIDCost, Sophus::SE3d::num_parameters>>(std::move(complete_cost));
 
-  ceres::GradientProblem problem(std::move(cost), std::move(manifold));
+  std::unique_ptr<ceres::Manifold> se3_manifold = std::make_unique<Sophus::Manifold<Sophus::SE3>>();
+  ceres::GradientProblem problem(std::move(cost), std::move(se3_manifold));
 
   ceres::GradientProblemSolver::Options options;
   options.minimizer_progress_to_stdout = true;
   options.update_state_every_iteration = true;
   options.line_search_direction_type = ceres::BFGS;
-
+  
   options.callbacks.emplace_back(new IterationCallbackWrapper([&](const ceres::IterationSummary& summary) {
     params_.callback(Eigen::Isometry3d(T_camera_lidar.matrix()));
     return ceres::CallbackReturnType::SOLVER_CONTINUE;

@@ -25,16 +25,16 @@ public:
 
     auto viewer = guik::LightViewer::instance();
     viewer->invoke([] {
-      ImGui::SetNextWindowPos({1300, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({55, 60}, ImGuiCond_Once);
       ImGui::Begin("visualizer");
       ImGui::End();
       ImGui::SetNextWindowPos({55, 150}, ImGuiCond_Once);
       ImGui::Begin("data selection");
       ImGui::End();
-      ImGui::SetNextWindowPos({60, 1200}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({55, 300}, ImGuiCond_Once);
       ImGui::Begin("texts");
       ImGui::End();
-      ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1260, 60}, ImGuiCond_Once);
       ImGui::Begin("images");
       ImGui::End();
     });
@@ -136,12 +136,10 @@ int main(int argc, char** argv) {
   using namespace boost::program_options;
   options_description description("viewer");
 
-  // clang-format off
   description.add_options()
     ("help", "produce help message")
     ("data_path", value<std::string>(), "directory that contains preprocessed data")
   ;
-  // clang-format on
 
   positional_options_description p;
   p.add("data_path", 1);

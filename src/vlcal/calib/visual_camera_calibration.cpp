@@ -2,7 +2,6 @@
 #include <typeinfo>
 #include <sstream>
 #include <iomanip>
-#include <memory>
 
 #include <fstream>
 #include <chrono>
@@ -82,10 +81,6 @@ std::tuple<Eigen::Vector4d, Eigen::VectorXd, Eigen::Isometry3d> VisualCameraCali
             auto [intrinsics, distortion, new_T_camera_lidar] = estimate_intrinsic_LM(init_T_camera_lidar);
             final_intrinsics = intrinsics;
             new_distortion = distortion;
-        }
-
-        if (params.intrinsic_callback) {
-          params.intrinsic_callback(final_intrinsics, new_distortion);
         }
 
         OptimizationData data;
@@ -224,11 +219,11 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     std::cout << "=== BFGS Optimization ===" << std::endl;
     ViewCullingParams view_culling_params;
     view_culling_params.enable_depth_buffer_culling = !this->params.disable_z_buffer_culling;
-    ViewCulling view_culling(proj_update, 
+    ViewCulling view_culling(proj_update,  
         {this->dataset.front()->image.cols, this->dataset.front()->image.rows},
         view_culling_params);
     
-    Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics();  
+    Eigen::VectorXd intrinsics_out = proj_update->get_intrinsics(); 
     Eigen::VectorXd distortion_out = proj_update->get_distortion_coeffs();
     
     double* parameters = new double[9];
@@ -270,44 +265,25 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
         auto culled_points = view_culling.cull(dataset[i]->points, init_T_camera_lidar);
         cv::Mat normalized_image;
         dataset[i]->image.convertTo(normalized_image, CV_64FC1, 1.0 / 255.0);
+        // auto nid_cost = std::make_shared<NIDCost>(normalized_image, culled_points, params.nid_bins);
         std::shared_ptr<NIDCost> nid_cost(new NIDCost(normalized_image, culled_points, params.nid_bins));
         nid_costs.emplace_back(nid_cost);
     }
 
-    auto cost = std::make_unique<MultiNIDCost>(init_intrinsics, init_T_camera_lidar);
+    auto sum_nid = std::make_unique<MultiNIDCost>(init_intrinsics, init_T_camera_lidar);
 
     for (const auto& nid_cost : nid_costs) {
-        cost->add(nid_cost);
+        sum_nid->add(nid_cost);
     }
 
-    auto first_order_function =
-    std::make_unique<ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>>(std::move(cost));
-
-    ceres::GradientProblem gradient_problem(std::move(first_order_function));
+    std::unique_ptr<ceres::FirstOrderFunction> first_order_function = std::make_unique<ceres::AutoDiffFirstOrderFunction<MultiNIDCost, 9>>(std::move(sum_nid));
 
     ceres::GradientProblemSolver::Options options;
     options.update_state_every_iteration = true;
     options.minimizer_progress_to_stdout = true;
     options.line_search_direction_type = ceres::BFGS;
 
-    struct InnerIterCB : public ceres::IterationCallback {
-    const VisualCameraCalibrationParams& params;
-    const camera::GenericCameraBase::Ptr proj_upd;
-    InnerIterCB(const VisualCameraCalibrationParams& p,
-                const camera::GenericCameraBase::Ptr& pu)
-        : params(p), proj_upd(pu) {}
-    ceres::CallbackReturnType operator()(const ceres::IterationSummary&) override {
-        if (params.intrinsic_callback) {
-        Eigen::Vector4d ci = proj_upd->get_intrinsics();
-        Eigen::VectorXd cd = proj_upd->get_distortion_coeffs();
-        params.intrinsic_callback(ci, cd);
-        }
-        return ceres::SOLVER_CONTINUE;
-    }
-    };
-
-    options.callbacks.push_back(new InnerIterCB(params, proj_update));
-
+    ceres::GradientProblem gradient_problem(std::move(first_order_function));
     ceres::GradientProblemSolver::Summary summary;
     ceres::Solve(options, gradient_problem, parameters, &summary);
 
@@ -334,7 +310,7 @@ VisualCameraCalibration::estimate_intrinsic_bfgs(const Eigen::Isometry3d& init_T
     new_distortion << parameters[4], parameters[5], parameters[6], parameters[7], parameters[8];
 
     std::cout << "summary_cost: " << summary.final_cost << std::endl;
-
+    
     std::vector<double> intrinsics_vec = toStdVector(new_intrinsics);
     std::vector<double> distortion_vec = toStdVector(new_distortion);
     

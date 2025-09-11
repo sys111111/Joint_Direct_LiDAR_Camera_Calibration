@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from email.mime import image
+import os
 import sys
 import cv2
 import math
@@ -9,7 +10,7 @@ import torch
 import numpy
 import argparse
 import matplotlib
-import os
+import matplotlib.cm as cm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -137,7 +138,7 @@ def main():
     for kp in kpts1:
       cv2.circle(canvas, (int(kp[0]), int(kp[1])), 3, (255, 255, 255))
 
-    cmap = matplotlib.colormaps['jet']  # 或使用 'jet'、'plasma' 等其他可用的颜色映射
+    cmap = cm.get_cmap('jet')
     confidence = confidence / numpy.max(confidence)
 
     for i, match in enumerate(matches):

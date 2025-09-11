@@ -72,19 +72,18 @@ public:
 
     const Eigen::Isometry3d init_T_camera_lidar = init_T_lidar_camera.inverse();
 
-    // viewer initializing
     auto viewer = guik::LightViewer::instance(Eigen::Vector2i(-1, -1), vm.count("background"));
     viewer->set_draw_xy_grid(false);
     viewer->use_arcball_camera_control();
 
     viewer->invoke([] {
-      ImGui::SetNextWindowPos({60, 1300}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1250, 200}, ImGuiCond_Once);
       ImGui::Begin("texts");
       ImGui::End();
-      ImGui::SetNextWindowPos({1200, 60}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({1260, 60}, ImGuiCond_Once);
       ImGui::Begin("visualizer");
       ImGui::End();
-      ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Once);
+      ImGui::SetNextWindowPos({60, 60}, ImGuiCond_Once);
       ImGui::Begin("images");
       ImGui::End();
     });
@@ -99,14 +98,8 @@ public:
     params.nelder_mead_convergence_criteria = vm["nelder_mead_convergence_criteria"].as<double>();
 
     const std::string registration_type = vm["registration_type"].as<std::string>();
-    if (registration_type == "nid_bfgs") {
-      params.registration_type = RegistrationType::EX_NID_BFGS;
-    } else if (registration_type == "nid_nelder_mead") {
-      params.registration_type = RegistrationType::EX_NID_NELDER_MEAD;
-    } else {
-      std::cerr << vlcal::console::bold_yellow << "warning: unknown registration type " << registration_type << vlcal::console::reset << std::endl;
-    }
-
+    
+    params.registration_type = RegistrationType::EX_NID_BFGS;
     params.callback = [&](const Eigen::Isometry3d& T_camera_lidar) { vis.set_T_camera_lidar(T_camera_lidar); };
     EXVisualCameraCalibration ex_calib(proj, dataset, params);
 
@@ -164,7 +157,6 @@ int main(int argc, char** argv) {
   using namespace boost::program_options;
   options_description description("calibrate");
 
-  // clang-format off
   description.add_options()
     ("help", "produce help message")
     ("data_path", value<std::string>(), "directory that contains preprocessed data")
@@ -177,7 +169,6 @@ int main(int argc, char** argv) {
     ("auto_quit", "automatically quit after calibration")
     ("background", "hide viewer and run calibration in background")
   ;
-  // clang-format on
 
   positional_options_description p;
   p.add("data_path", 1);
