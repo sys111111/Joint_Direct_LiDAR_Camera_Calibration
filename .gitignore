@@ -1,6 +1,4 @@
 site/*
-pre*
-build/*
 models*
 
 *.bag
