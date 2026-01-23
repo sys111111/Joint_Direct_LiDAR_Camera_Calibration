@@ -264,10 +264,27 @@ Data collection example for Livox Avia:
     <img src="pics/Example.png" width = 33% >
 </div>
 
-## 6. License && Contact
+## 6. Citation
+
+```
+@INPROCEEDINGS{11247599,
+  author={Shen, Yishu and Hong, Sheng and Shen, Shaojie and Qin, Tong},
+  booktitle={2025 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
+  title={Direct, Targetless and Automatic Joint Calibration of LiDAR-Camera Intrinsic and Extrinsic}, 
+  year={2025},
+  volume={},
+  number={},
+  pages={8720-8726},
+  keywords={Point cloud compression;Laser radar;Accuracy;Three-dimensional displays;Robot vision systems;Refining;Sensor fusion;Cameras;Calibration;Optimization},
+  doi={10.1109/IROS60139.2025.11247599}}
+
+```
+
+## 7. License && Contact
 
 The source code of this package is released under the MIT license. If you have any problems, please contact the author at <sys2048194132@sjtu.edu.cn>
 
 ## **References**
 
 <a id="1">[1]</a> K. Koide, S. Oishi, M. Yokozuka, and A. Banno, “General, single-shot, target-less, and automatic lidar-camera extrinsic calibration toolbox,” in 2023 IEEE International Conference on Robotics and Automation (ICRA), IEEE, 2023, pp. 11301–11307.
+
